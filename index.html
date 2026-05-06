@@ -159,7 +159,13 @@ const CLIENTS = [
   { id:13, name:'Luka Pirc',      dob:'10.1.1999' },
   { id:14, name:'Jože Kocjančič', dob:'11.11.1970' },
   { id:15, name:'Ivana Rozman',   dob:'10.5.1962' },
-  { id:16, name:'Andrej Štefanič',dob:'15.4.1983' },
+  { id:16, name:'Andrej Štefanič', dob:'15.4.1983' },
+  { id:17, name:'Klara Novšak',   dob:'15.3.1993' },
+  { id:18, name:'Rok Železnik',   dob:'22.7.1988' },
+  { id:19, name:'Vesna Podobnik', dob:'8.11.1975' },
+  { id:20, name:'Gregor Turk',    dob:'3.2.1969' },
+  { id:21, name:'Špela Leban',    dob:'19.9.2000' },
+  { id:22, name:'Franc Ravnikar', dob:'5.5.1958' },
 ];
 
 const POLICIES = {
@@ -304,6 +310,65 @@ const POLICIES = {
         hudeBolezni:[{n:'Zavarovalna vsota (razš. paket)',v:'20.000 EUR'}],
         delovnaNezmoznost:null }
     ], health:['Specialisti+']
+  },
+  17: {
+    life: [
+      { id:'l17a', type:'life', name:'Zavarovanje življenja', period:'1.1.2025 – 1.1.2065',
+        base:[{n:'ZV za smrt',v:'50.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'30.000 EUR'},{n:'Invalidnost',v:'20.000 EUR'},{n:'Dnevno nadomestilo',v:'10 EUR'}],
+        hudeBolezni:null,
+        delovnaNezmoznost:[{n:'Začasna delovna nezmožnost (mesečna renta)',v:'600 EUR'}] }
+    ], health:['Specialisti nezgoda']
+  },
+  18: {
+    life: [
+      { id:'l18a', type:'life', name:'Zavarovanje življenja', period:'1.1.2025 – 1.7.2063',
+        base:[{n:'ZV za smrt',v:'1.000 EUR'}],
+        nezgodno:[{n:'Zlomi, izpahi, opekline',v:'10.000 EUR'},{n:'Invalidnostna renta 30%',v:'500 EUR / 25 let'},{n:'Nezgodno zavarovanje otrok (Kombinacija D)',v:'—'}],
+        hudeBolezni:[{n:'Zavarovalna vsota (razš. paket)',v:'10.000 EUR'}],
+        delovnaNezmoznost:null },
+      { id:'l18b', type:'fleks', name:'Fleks', period:'od 1.6.2022',
+        base:[{n:'Sredstva na računu',v:'cca 1.950 EUR'},{n:'Mesečna premija',v:'50 EUR'},{n:'Skladi',v:'Triglav Top Brands, Triglav Severna Amerika'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti','Zobje+']
+  },
+  19: {
+    life: [
+      { id:'l19a', type:'life', name:'Zavarovanje življenja', period:'1.1.2025 – 1.11.2050',
+        base:[{n:'ZV za smrt',v:'30.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'15.000 EUR'},{n:'Invalidnost',v:'30.000 EUR'},{n:'Bolnišnični dan',v:'15 EUR'},{n:'Invalidnostna renta 30%',v:'350 EUR / 25 let'}],
+        hudeBolezni:[{n:'Zavarovalna vsota',v:'5.000 EUR'}],
+        delovnaNezmoznost:null }
+    ], health:['Specialisti','Operacije (ZV 30.000)']
+  },
+  20: {
+    life: [
+      { id:'l20a', type:'life', name:'Zavarovanje življenja', period:'1.3.2015 – 3.2.2044',
+        base:[{n:'ZV za smrt',v:'1.000 EUR'}],
+        nezgodno:[{n:'Invalidnost',v:'20.000 EUR'},{n:'Dnevno nadomestilo',v:'5 EUR'},{n:'Zlomi, izpahi, opekline',v:'15.000 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l20b', type:'fleks', name:'Fleks', period:'od 1.3.2018',
+        base:[{n:'Sredstva na računu',v:'cca 8.200 EUR'},{n:'Mesečna premija',v:'80 EUR'},{n:'Skladi',v:'Triglav Renta, Triglav Evropa'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  21: {
+    life: [
+      { id:'l21a', type:'fleks', name:'Fleks', period:'od 1.2.2024',
+        base:[{n:'Sredstva na računu',v:'cca 470 EUR'},{n:'Mesečna premija',v:'30 EUR'},{n:'Skladi',v:'Triglav Top Brands'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti nezgoda']
+  },
+  22: {
+    life: [
+      { id:'l22a', type:'fleks', name:'Fleks za starejše (1)', period:'od 1.4.2016',
+        base:[{n:'Sredstva na računu',v:'cca 13.800 EUR'},{n:'Mesečna premija',v:'100 EUR'},{n:'Skladi',v:'Triglav Obvezniški, Triglav Renta'}],
+        nezgodno:[{n:'Dodatno nezgodno zavarovanje starejših – Kombinacija D',v:'—'}],
+        hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l22b', type:'fleks', name:'Fleks za starejše (2)', period:'od 1.1.2022',
+        base:[{n:'Sredstva na računu',v:'cca 2.650 EUR'},{n:'Mesečna premija',v:'60 EUR'},{n:'Skladi',v:'Triglav Renta, Triglav Evropa, Triglav Top Brands'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
   }
 };
 
