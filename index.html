@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-kartica – Zavarovalni zastopnik</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f8f7f5;
+    --bg-tertiary: #f0efe9;
+    --text: #1a1a18;
+    --text-secondary: #6b6a65;
+    --text-tertiary: #9e9d98;
+    --border: rgba(0,0,0,0.12);
+    --border-hover: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --blue-dark: #0C447C;
+    --orange: #D85A30;
+    --green: #1D9E75;
+    --green-light: #EAF3DE;
+    --green-text: #3B6D11;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg-secondary: #252523;
+      --bg-tertiary: #2e2e2b;
+      --text: #f0efe9;
+      --text-secondary: #9e9d98;
+      --text-tertiary: #6b6a65;
+      --border: rgba(255,255,255,0.1);
+      --border-hover: rgba(255,255,255,0.2);
+      --blue-light: #0c2a45;
+      --green-light: #0e2a16;
+      --green-text: #6fcf97;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-tertiary); color: var(--text); min-height: 100vh; }
+  .page { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem; }
+  .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 0.5px solid var(--border); }
+  .page-logo { width: 36px; height: 36px; background: var(--orange); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
+  .page-title { font-size: 16px; font-weight: 500; }
+  .page-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+
+  .search-row { display: flex; gap: 8px; margin-bottom: 0.75rem; }
+  .search-input { flex: 1; padding: 10px 14px; font-size: 15px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); outline: none; }
+  .search-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(24,95,165,0.12); }
+  .search-btn { padding: 10px 20px; background: var(--blue); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .search-btn:hover { background: var(--blue-dark); }
+  .search-hint { font-size: 12px; color: var(--text-tertiary); margin-bottom: 1.25rem; line-height: 1.5; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+  .tab { padding: 8px 18px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--blue); font-weight: 500; }
+  .tab .badge { display: inline-flex; align-items: center; justify-content: center; background: var(--blue); color: #fff; border-radius: 10px; font-size: 11px; padding: 1px 6px; margin-left: 5px; }
+
+  .results-table { width: 100%; border-collapse: collapse; background: var(--bg); border-radius: var(--radius-lg); overflow: hidden; border: 0.5px solid var(--border); }
+  .results-table th { font-size: 12px; color: var(--text-secondary); font-weight: 400; text-align: left; padding: 8px 12px; background: var(--bg-secondary); border-bottom: 0.5px solid var(--border); }
+  .results-table td { padding: 11px 12px; font-size: 13px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+  .results-table tr:last-child td { border-bottom: none; }
+  .client-link { color: var(--blue); font-weight: 500; cursor: pointer; text-decoration: none; }
+  .client-link:hover { text-decoration: underline; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--bg-secondary); border: 0.5px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 15px; }
+  .opozoril { font-size: 12px; color: var(--text-tertiary); }
+  .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); font-size: 14px; background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); }
+
+  .client-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; }
+  .back-btn { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-secondary); cursor: pointer; padding: 7px 12px; border-radius: var(--radius-md); background: var(--bg); border: 0.5px solid var(--border); white-space: nowrap; }
+  .back-btn:hover { background: var(--bg-secondary); }
+  .client-name { font-size: 19px; font-weight: 500; }
+  .client-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  .ins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1.25rem; }
+  .ins-card { background: var(--bg); padding: 1.15rem 1.25rem; cursor: pointer; transition: background 0.12s; }
+  .ins-card:hover { background: var(--bg-secondary); }
+  .ins-card.active { background: var(--blue-light); }
+  .ins-card.inactive { opacity: 0.38; pointer-events: none; }
+  .ins-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .ins-icon { width: 40px; height: 40px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 19px; color: #fff; flex-shrink: 0; }
+  .ins-icon.life { background: var(--orange); }
+  .ins-icon.health { background: var(--green); }
+  .ins-title { font-size: 13px; font-weight: 500; color: var(--blue); line-height: 1.3; }
+  .ins-count { font-size: 28px; font-weight: 500; }
+  .ins-label { font-size: 12px; color: var(--text-secondary); }
+
+  .health-list { display: flex; flex-direction: column; gap: 6px; }
+  .health-simple { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); }
+  .health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .health-name { font-size: 13px; font-weight: 500; }
+  .health-badge { margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 10px; background: var(--green-light); color: var(--green-text); font-weight: 500; }
+
+  .section-header { display: flex; align-items: center; gap: 10px; padding: 8px 0; margin-bottom: 10px; border-bottom: 0.5px solid var(--border); }
+  .section-header-title { font-size: 15px; font-weight: 500; }
+
+  .policy-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 8px; overflow: hidden; }
+  .policy-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer; gap: 8px; }
+  .policy-header:hover { background: var(--bg-secondary); }
+  .policy-left { display: flex; align-items: center; gap: 10px; }
+  .policy-icon { width: 32px; height: 32px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+  .policy-icon.life { background: var(--orange); }
+  .policy-icon.fleks { background: var(--blue); }
+  .policy-name { font-size: 13px; font-weight: 500; }
+  .policy-period { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+  .policy-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .policy-status { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--green-light); color: var(--green-text); font-weight: 500; }
+  .policy-type-tag { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: var(--blue-light); color: var(--blue-dark); font-weight: 500; }
+  .policy-chevron { font-size: 15px; color: var(--text-secondary); transition: transform 0.2s; }
+  .policy-chevron.open { transform: rotate(180deg); }
+  .policy-body { border-top: 0.5px solid var(--border); display: none; }
+  .policy-body.open { display: block; }
+
+  .pol-section { padding: 11px 14px; border-bottom: 0.5px solid var(--border); }
+  .pol-section:last-child { border-bottom: none; }
+  .pol-section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .pol-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-base { background: var(--orange); }
+  .dot-nezgodno { background: #BA7517; }
+  .dot-hude { background: #993556; }
+  .dot-delovna { background: var(--blue); }
+  .cov-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .cov-table td { padding: 4px 0; }
+  .cov-table td:first-child { color: var(--text-secondary); }
+  .cov-table td:last-child { text-align: right; font-weight: 500; }
+  .cov-table tr:not(:last-child) td { border-bottom: 0.5px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-header">
+    <div class="page-logo"><i class="ti ti-shield-check"></i></div>
+    <div>
+      <div class="page-title">E-kartica</div>
+      <div class="page-sub">Pregled zavarovanj stranke</div>
+    </div>
+  </div>
+  <div id="root"></div>
+</div>
+
+<script>
+const CLIENTS = [
+  { id:1, name:'Igor Vidmar',    dob:'1.10.1966' },
+  { id:2, name:'Marija Zupan',   dob:'19.10.1970' },
+  { id:3, name:'Martin Krajnc',  dob:'15.4.1981' },
+  { id:4, name:'Nejc Breznik',   dob:'29.8.1991' },
+  { id:5, name:'Nina Horvat',    dob:'18.4.1995' },
+  { id:6, name:'Petra Mlakar',   dob:'15.8.1987' },
+  { id:7, name:'Sanja Černe',    dob:'1.8.1971' },
+  { id:8, name:'Tomaž Bergant',  dob:'12.2.1984' },
+];
+
+const POLICIES = {
+  1: {
+    life: [
+      { id:'l1a', type:'life', name:'Mešano življenjsko zavarovanje', period:'1.11.2004 – 1.11.2029',
+        base:[{n:'ZV za smrt',v:'10.350 EUR'},{n:'ZV za doživetje',v:'10.350 EUR'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  2: {
+    life: [
+      { id:'l2a', type:'life', name:'Zavarovanje življenja', period:'1.8.2024 – 1.8.2039',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'3.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'5.000 EUR'},{n:'Invalidnost',v:'15.000 EUR'},{n:'Dnevno nadomestilo',v:'8 EUR'},{n:'Zlomi, izpahi, opekline',v:'10.000 EUR'},{n:'Bolnišnični dan',v:'20 EUR'},{n:'Invalidnostna renta 30%',v:'400 EUR / 25 let'}],
+        hudeBolezni:[{n:'Zavarovalna vsota (razš. paket)',v:'4.000 EUR'}],
+        delovnaNezmoznost:null }
+    ], health:[]
+  },
+  3: {
+    life: [
+      { id:'l3a', type:'life', name:'Zavarovanje življenja (1)', period:'1.4.2025 – 1.4.2045',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'1.000 EUR'}],
+        nezgodno:[{n:'Zlomi, izpahi, opekline',v:'10.000 EUR'},{n:'Invalidnostna renta 30%',v:'500 EUR / 25 let'}],
+        hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l3b', type:'life', name:'Zavarovanje življenja (2)', period:'—',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'1.000 EUR'}],
+        nezgodno:[{n:'Zlomi, izpahi, opekline',v:'7.133 EUR'},{n:'Invalidnostna renta 50%',v:'611 EUR / 15 let'},{n:'Bolnišnični dan',v:'10 EUR'},{n:'Nezgodno zavarovanje otrok (Nika, 11.11.2015)',v:'D-paket'}],
+        hudeBolezni:null,
+        delovnaNezmoznost:[{n:'Začasna delovna nezmožnost (mesečna renta)',v:'305,70 EUR'}] },
+      { id:'l3c', type:'fleks', name:'Fleks', period:'od 1.3.2024',
+        base:[{n:'Sredstva na računu',v:'720 EUR'},{n:'Mesečna premija',v:'74,90 EUR'},{n:'Osnovna premija',v:'40,76 EUR'},{n:'Dodatna premija',v:'33,14 EUR'},{n:'Strategija',v:'Drugi finančni cilji 10 let'}],
+        nezgodno:[{n:'Invalidnost',v:'40.760 EUR'},{n:'Nezgodna smrt',v:'20.380 EUR'},{n:'Dnevno nadomestilo',v:'20,38 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti','Zobje+']
+  },
+  4: {
+    life: [
+      { id:'l4a', type:'life', name:'Zavarovanje življenja (1)', period:'1.7.2017 – 1.7.2037',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'49.810 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'27.000 EUR'},{n:'Invalidnost',v:'54.140 EUR'},{n:'Dnevno nadomestilo',v:'16,24 EUR'},{n:'Bolnišnični dan',v:'10,83 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l4b', type:'life', name:'Zavarovanje življenja (2)', period:'1.7.2017 – 1.7.2037',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'49.810 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'27.000 EUR'},{n:'Invalidnost',v:'54.140 EUR'},{n:'Dnevno nadomestilo',v:'16,24 EUR'},{n:'Bolnišnični dan',v:'10,83 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  5: {
+    life: [
+      { id:'l5a', type:'life', name:'Zavarovanje življenja', period:'1.2.2020 – 1.2.2040',
+        base:[{n:'Zavarovalna vsota',v:'1.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'30.000 EUR'},{n:'Invalidnost',v:'20.000 EUR'},{n:'Dnevno nadomestilo',v:'10 EUR'},{n:'Bolnišnični dan',v:'20 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti nezgoda']
+  },
+  6: {
+    life: [
+      { id:'l6a', type:'life', name:'Zavarovanje življenja', period:'1.8.2015 – 1.8.2045',
+        base:[{n:'Zavarovalna vsota (smrt)',v:'25.000 EUR'}],
+        nezgodno:[{n:'Invalidnost',v:'35.000 EUR'},{n:'Dnevno nadomestilo',v:'5 EUR'},{n:'Zlomi, izpahi, opekline',v:'6.000 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Zobje+']
+  },
+  7: {
+    life: [
+      { id:'l7a', type:'fleks', name:'Fleks (1)', period:'od 1.7.2024',
+        base:[{n:'Sredstva na računu',v:'11.022 EUR'},{n:'Mesečna premija',v:'50 EUR'},{n:'Skladi',v:'Top Brands Severna Amerika'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l7b', type:'fleks', name:'Fleks (2)', period:'od 1.7.2015',
+        base:[{n:'Sredstva na računu',v:'10.382 EUR'},{n:'Mesečna premija',v:'77,78 EUR'},{n:'Strategija',v:'Drugi finančni cilji 15 let'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  8: {
+    life: [
+      { id:'l8a', type:'life', name:'Zavarovanje življenja', period:'1.10.2005 – 1.10.2045',
+        base:[{n:'Zavarovalna vsota',v:'1.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'10.000 EUR'},{n:'Invalidnost',v:'10.000 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  }
+};
+
+const SECTIONS = [
+  { key:'base',              label:'Osnovno zavarovanje',               dotClass:'dot-base',     fleksLabel:'Fleks – osnova' },
+  { key:'nezgodno',          label:'Dodatno nezgodno zavarovanje',      dotClass:'dot-nezgodno', fleksLabel:null },
+  { key:'hudeBolezni',       label:'Zavarovanje za hude bolezni',       dotClass:'dot-hude',     fleksLabel:null },
+  { key:'delovnaNezmoznost', label:'Zavarovanje za delovno nezmožnost', dotClass:'dot-delovna',  fleksLabel:null },
+];
+
+let state = { view:'search', query:'', submitted:'', client:null, activeTab:null, openPolicies:{} };
+
+function doSearch() { state.submitted = state.query.trim(); render(); }
+
+function render() {
+  document.getElementById('root').innerHTML = state.view === 'search' ? renderSearch() : renderClient();
+  attachEvents();
+}
+
+function renderSearch() {
+  const q = state.submitted.toLowerCase();
+  const results = q.length >= 2 ? CLIENTS.filter(c => c.name.toLowerCase().includes(q) || c.dob.includes(q)) : [];
+  const searched = state.submitted.length >= 2;
+  return `
+    <div class="search-row">
+      <input class="search-input" id="search" type="text" placeholder="Vpišite ime ali datum rojstva…" value="${state.query}" autocomplete="off">
+      <button class="search-btn" id="searchBtn"><i class="ti ti-search"></i> Išči</button>
+    </div>
+    <p class="search-hint">Iskalnik omogoča iskanje po imenu, priimku in datumu rojstva.</p>
+    <div class="tabs">
+      <div class="tab active">Stranke${searched && results.length ? `<span class="badge">${results.length}</span>` : ''}</div>
+      <div class="tab">Police</div><div class="tab">Škode</div><div class="tab">Dokumenti</div>
+    </div>
+    ${!searched
+      ? `<div class="empty-state"><i class="ti ti-search" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.2"></i>Vnesite ime in kliknite Išči</div>`
+      : !results.length
+        ? `<div class="empty-state">Ni rezultatov za „<strong>${state.submitted}</strong>"</div>`
+        : `<table class="results-table"><thead><tr>
+            <th></th><th></th><th>Naziv</th><th>Datum rojstva</th><th>Opozorila</th>
+          </tr></thead><tbody>
+          ${results.map(c=>`<tr>
+            <td style="width:28px"><input type="checkbox"></td>
+            <td style="width:32px"><div class="avatar"><i class="ti ti-user"></i></div></td>
+            <td><a class="client-link" data-id="${c.id}">${c.name}</a></td>
+            <td>${c.dob}</td>
+            <td><span class="opozoril">ni opozoril</span></td>
+          </tr>`).join('')}
+          </tbody></table>`}`;
+}
+
+function renderClient() {
+  const c = state.client;
+  const p = POLICIES[c.id];
+  const lifeN = p.life.length, healthN = p.health.length;
+  return `
+    <div class="client-header">
+      <div class="back-btn" id="back"><i class="ti ti-arrow-left"></i> Nazaj</div>
+      <div>
+        <div class="client-name">${c.name}</div>
+        <div class="client-meta">Datum rojstva: ${c.dob}</div>
+      </div>
+    </div>
+    <div class="ins-grid">
+      <div class="ins-card ${state.activeTab==='life'?'active':''} ${!lifeN?'inactive':''}" data-tab="life">
+        <div class="ins-card-header">
+          <div class="ins-icon life"><i class="ti ti-friends"></i></div>
+          <span class="ins-title">Življenjska zavarovanja</span>
+        </div>
+        <div class="ins-count">${lifeN}</div>
+        <div class="ins-label">Aktivne police</div>
+      </div>
+      <div class="ins-card ${state.activeTab==='health'?'active':''} ${!healthN?'inactive':''}" data-tab="health">
+        <div class="ins-card-header">
+          <div class="ins-icon health"><i class="ti ti-activity"></i></div>
+          <span class="ins-title">Zdravstvena zavarovanja</span>
+        </div>
+        <div class="ins-count">${healthN}</div>
+        <div class="ins-label">Aktivne police</div>
+      </div>
+    </div>
+    ${state.activeTab === 'life' ? renderLifePolicies(p.life)
+    : state.activeTab === 'health' ? renderHealth(p.health)
+    : '<div class="empty-state">Kliknite na kategorijo za pregled polic.</div>'}`;
+}
+
+function renderLifePolicies(list) {
+  if (!list.length) return `<div class="empty-state">Ni polic v tej kategoriji.</div>`;
+  return `<div>
+    <div class="section-header">
+      <div class="ins-icon life" style="width:26px;height:26px;font-size:13px"><i class="ti ti-friends"></i></div>
+      <span class="section-header-title">Življenjska zavarovanja</span>
+    </div>
+    ${list.map(pol => {
+      const open = state.openPolicies[pol.id];
+      const isFleks = pol.type === 'fleks';
+      const activeSections = SECTIONS.filter(s => pol[s.key] && pol[s.key].length);
+      return `<div class="policy-card">
+        <div class="policy-header" data-policy="${pol.id}">
+          <div class="policy-left">
+            <div class="policy-icon ${isFleks?'fleks':'life'}"><i class="ti ${isFleks?'ti-chart-line':'ti-friends'}"></i></div>
+            <div>
+              <div class="policy-name">${pol.name}</div>
+              ${pol.period !== '—' ? `<div class="policy-period">${pol.period}</div>` : ''}
+            </div>
+          </div>
+          <div class="policy-right">
+            ${isFleks ? `<span class="policy-type-tag">Fleks</span>` : ''}
+            <span class="policy-status">Aktivna</span>
+            <i class="ti ti-chevron-down policy-chevron${open?' open':''}"></i>
+          </div>
+        </div>
+        <div class="policy-body${open?' open':''}">
+          ${activeSections.map(s => `
+            <div class="pol-section">
+              <div class="pol-section-label">
+                <span class="pol-dot ${s.dotClass}"></span>
+                ${isFleks && s.key==='base' ? s.fleksLabel : s.label}
+              </div>
+              <table class="cov-table">
+                ${pol[s.key].map(cv=>`<tr><td>${cv.n}</td><td>${cv.v}</td></tr>`).join('')}
+              </table>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderHealth(list) {
+  if (!list.length) return `<div class="empty-state">Ni zdravstvenih zavarovanj.</div>`;
+  return `<div>
+    <div class="section-header">
+      <div class="ins-icon health" style="width:26px;height:26px;font-size:13px"><i class="ti ti-activity"></i></div>
+      <span class="section-header-title">Zdravstvena zavarovanja</span>
+    </div>
+    <div class="health-list">
+      ${list.map(name=>`
+        <div class="health-simple">
+          <div class="health-dot"></div>
+          <span class="health-name">${name}</span>
+          <span class="health-badge">Aktivna</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function attachEvents() {
+  const inp = document.getElementById('search');
+  if (inp) {
+    inp.addEventListener('input', e => state.query = e.target.value);
+    inp.addEventListener('keydown', e => e.key === 'Enter' && doSearch());
+    inp.focus();
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+  }
+  const btn = document.getElementById('searchBtn');
+  if (btn) btn.addEventListener('click', doSearch);
+  document.querySelectorAll('.client-link').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    state.client = CLIENTS.find(c => c.id === parseInt(a.dataset.id));
+    state.view = 'client'; state.activeTab = null; state.openPolicies = {};
+    render();
+  }));
+  const back = document.getElementById('back');
+  if (back) back.addEventListener('click', () => { state.view = 'search'; state.submitted = ''; render(); });
+  document.querySelectorAll('[data-tab]').forEach(el => el.addEventListener('click', () => { state.activeTab = el.dataset.tab; render(); }));
+  document.querySelectorAll('[data-policy]').forEach(el => el.addEventListener('click', () => {
+    state.openPolicies[el.dataset.policy] = !state.openPolicies[el.dataset.policy]; render();
+  }));
+}
+
+render();
+</script>
+</body>
+</html>
