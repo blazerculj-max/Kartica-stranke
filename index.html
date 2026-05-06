@@ -379,7 +379,7 @@ const SECTIONS = [
   { key:'delovnaNezmoznost', label:'Zavarovanje za delovno nezmožnost', dotClass:'dot-delovna',  fleksLabel:null },
 ];
 
-let state = { view:'search', query:'', submitted:'', client:null, activeTab:null, openPolicies:{} };
+let state = { view:'search', query:'', submitted:null, client:null, activeTab:null, openPolicies:{} };
 
 function doSearch() { state.submitted = state.query.trim(); render(); }
 
@@ -389,9 +389,8 @@ function render() {
 }
 
 function renderSearch() {
-  const q = state.submitted.toLowerCase();
-  const results = q.length >= 2 ? CLIENTS.filter(c => c.name.toLowerCase().includes(q) || c.dob.includes(q)) : [];
-  const searched = state.submitted.length >= 2;
+  const q = (state.submitted || '').toLowerCase();
+  const results = state.submitted === null ? [] : q.length === 0 ? CLIENTS : CLIENTS.filter(c => c.name.toLowerCase().includes(q) || c.dob.includes(q));
   return `
     <div class="search-row">
       <input class="search-input" id="search" type="text" placeholder="Vpišite ime ali datum rojstva…" value="${state.query}" autocomplete="off">
@@ -399,11 +398,11 @@ function renderSearch() {
     </div>
     <p class="search-hint">Iskalnik omogoča iskanje po imenu, priimku in datumu rojstva.</p>
     <div class="tabs">
-      <div class="tab active">Stranke${searched && results.length ? `<span class="badge">${results.length}</span>` : ''}</div>
+      <div class="tab active">Stranke${state.submitted !== null && results.length ? `<span class="badge">${results.length}</span>` : ''}</div>
       <div class="tab">Police</div><div class="tab">Škode</div><div class="tab">Dokumenti</div>
     </div>
-    ${!searched
-      ? `<div class="empty-state"><i class="ti ti-search" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.2"></i>Vnesite ime in kliknite Išči</div>`
+    ${state.submitted === null
+      ? `<div class="empty-state"><i class="ti ti-search" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.2"></i>Vnesite ime ali kliknite Išči za vse stranke</div>`
       : !results.length
         ? `<div class="empty-state">Ni rezultatov za „<strong>${state.submitted}</strong>"</div>`
         : `<table class="results-table"><thead><tr>
@@ -547,7 +546,7 @@ function attachEvents() {
     render();
   }));
   const back = document.getElementById('back');
-  if (back) back.addEventListener('click', () => { state.view = 'search'; state.submitted = ''; render(); });
+  if (back) back.addEventListener('click', () => { state.view = 'search'; state.submitted = null; render(); });
   document.querySelectorAll('[data-tab]').forEach(el => el.addEventListener('click', () => { state.activeTab = el.dataset.tab; render(); }));
   document.querySelectorAll('[data-policy]').forEach(el => el.addEventListener('click', () => {
     state.openPolicies[el.dataset.policy] = !state.openPolicies[el.dataset.policy]; render();
