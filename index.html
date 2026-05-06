@@ -150,8 +150,16 @@ const CLIENTS = [
   { id:4, name:'Nejc Breznik',   dob:'29.8.1991' },
   { id:5, name:'Nina Horvat',    dob:'18.4.1995' },
   { id:6, name:'Petra Mlakar',   dob:'15.8.1987' },
-  { id:7, name:'Sanja Černe',    dob:'1.8.1971' },
-  { id:8, name:'Tomaž Bergant',  dob:'12.2.1984' },
+  { id:7,  name:'Sanja Černe',     dob:'1.8.1971' },
+  { id:8,  name:'Tomaž Bergant',  dob:'12.2.1984' },
+  { id:9,  name:'Tanja Kovač',    dob:'10.10.1991' },
+  { id:10, name:'Petra Vogrinec', dob:'12.2.1987' },
+  { id:11, name:'Matej Oblak',    dob:'15.2.1996' },
+  { id:12, name:'Maja Štrukelj',  dob:'1.6.1978' },
+  { id:13, name:'Luka Pirc',      dob:'10.1.1999' },
+  { id:14, name:'Jože Kocjančič', dob:'11.11.1970' },
+  { id:15, name:'Ivana Rozman',   dob:'10.5.1962' },
+  { id:16, name:'Andrej Štefanič',dob:'15.4.1983' },
 ];
 
 const POLICIES = {
@@ -177,7 +185,7 @@ const POLICIES = {
         base:[{n:'Zavarovalna vsota (smrt)',v:'1.000 EUR'}],
         nezgodno:[{n:'Zlomi, izpahi, opekline',v:'10.000 EUR'},{n:'Invalidnostna renta 30%',v:'500 EUR / 25 let'}],
         hudeBolezni:null, delovnaNezmoznost:null },
-      { id:'l3b', type:'life', name:'Zavarovanje življenja (2)', period:'—',
+      { id:'l3b', type:'life', name:'Zavarovanje življenja (2)', period:'1.6.2015 – 1.6.2055',
         base:[{n:'Zavarovalna vsota (smrt)',v:'1.000 EUR'}],
         nezgodno:[{n:'Zlomi, izpahi, opekline',v:'7.133 EUR'},{n:'Invalidnostna renta 50%',v:'611 EUR / 15 let'},{n:'Bolnišnični dan',v:'10 EUR'},{n:'Nezgodno zavarovanje otrok (Nika, 11.11.2015)',v:'D-paket'}],
         hudeBolezni:null,
@@ -233,6 +241,69 @@ const POLICIES = {
         nezgodno:[{n:'Nezgodna smrt',v:'10.000 EUR'},{n:'Invalidnost',v:'10.000 EUR'}],
         hudeBolezni:null, delovnaNezmoznost:null }
     ], health:[]
+  },
+  9: {
+    life: [
+      { id:'l9a', type:'fleks', name:'Fleks', period:'od 1.10.2025',
+        base:[{n:'ZV za primer smrti',v:'4.400 EUR'},{n:'Sredstva na računu',v:'cca 90 EUR'},{n:'Mesečna premija',v:'30 EUR'},{n:'Skladi',v:'Triglav Evropa, Triglav Top Brands'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l9b', type:'life', name:'Zavarovanje življenja', period:'1.1.2024 – 1.1.2044',
+        base:[{n:'ZV za primer smrti',v:'50.000 EUR'}],
+        nezgodno:null, hudeBolezni:null,
+        delovnaNezmoznost:[{n:'Začasna delovna nezmožnost (mesečna renta)',v:'700 EUR'}] }
+    ], health:['Zobje+']
+  },
+  10: {
+    life:[], health:[]
+  },
+  11: {
+    life: [
+      { id:'l11a', type:'life', name:'Zavarovanje življenja', period:'1.1.2019 – 1.1.2045',
+        base:[{n:'ZV za primer smrti',v:'1.000 EUR'}],
+        nezgodno:[{n:'Nezgodna smrt',v:'50.000 EUR'},{n:'Invalidnost',v:'20.000 EUR'},{n:'Dnevno nadomestilo',v:'10 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti','Zdravnik 360']
+  },
+  12: {
+    life:[], health:['Specialisti','Operacije (ZV 30.000)']
+  },
+  13: {
+    life: [
+      { id:'l13a', type:'fleks', name:'Fleks', period:'od 1.1.2025',
+        base:[{n:'ZV za primer smrti',v:'4.400 EUR'},{n:'Mesečna premija',v:'50 EUR'},{n:'Skladi',v:'Triglav Top Brands, Triglav Severna Amerika'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:['Specialisti nezgoda']
+  },
+  14: {
+    life: [
+      { id:'l14a', type:'life', name:'Zavarovanje življenja', period:'1.10.2018 – 1.10.2045',
+        base:[{n:'ZV za primer smrti',v:'1.000 EUR'}],
+        nezgodno:[{n:'Invalidnost',v:'30.000 EUR'},{n:'Dnevno nadomestilo',v:'5 EUR'},{n:'Bolnišnični dan',v:'10 EUR'},{n:'Invalidnostna renta 30%',v:'400 EUR / 25 let'},{n:'Zlomi, izpahi, opekline',v:'20.000 EUR'}],
+        hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l14b', type:'fleks', name:'Fleks', period:'od 1.1.2020',
+        base:[{n:'ZV za primer smrti / stanje na Fleksu',v:'10.380 EUR'},{n:'Mesečna premija',v:'100 EUR'},{n:'Skladi',v:'Triglav Severna Amerika, Triglav Aktivni, Triglav Renta'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  15: {
+    life: [
+      { id:'l15a', type:'fleks', name:'Fleks za starejše (1)', period:'od 1.1.2025',
+        base:[{n:'Sredstva na računu',v:'cca 600 EUR'},{n:'Mesečna premija',v:'50 EUR'},{n:'Skladi',v:'Triglav Obvezniški, Triglav Renta'}],
+        nezgodno:null, hudeBolezni:null, delovnaNezmoznost:null },
+      { id:'l15b', type:'fleks', name:'Fleks za starejše (2)', period:'od 1.1.2019',
+        base:[{n:'Sredstva na računu',v:'10.500 EUR'},{n:'Mesečna premija',v:'100 EUR'},{n:'Skladi',v:'Triglav Renta, Triglav Evropa, Triglav Top Brands'}],
+        nezgodno:[{n:'Kombinacija D',v:'—'}],
+        hudeBolezni:null, delovnaNezmoznost:null }
+    ], health:[]
+  },
+  16: {
+    life: [
+      { id:'l16a', type:'life', name:'Zavarovanje življenja', period:'1.5.2020 – 1.5.2035',
+        base:[{n:'ZV za primer smrti',v:'1.000 EUR'}],
+        nezgodno:[{n:'Nezgodno zavarovanje otrok (Kombinacija D)',v:'—'}],
+        hudeBolezni:[{n:'Zavarovalna vsota (razš. paket)',v:'20.000 EUR'}],
+        delovnaNezmoznost:null }
+    ], health:['Specialisti+']
   }
 };
 
@@ -287,6 +358,20 @@ function renderClient() {
   const c = state.client;
   const p = POLICIES[c.id];
   const lifeN = p.life.length, healthN = p.health.length;
+
+  const noPoliciesBlock = (p.external && p.external.length) ? `
+    <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin-top:0.5rem;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <i class="ti ti-alert-triangle" style="color:#BA7517;font-size:18px"></i>
+        <span style="font-size:13px;font-weight:500;color:var(--text)">Nima zavarovanj pri nas</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Znana zavarovanja pri drugih ponudnikih:</div>
+      ${p.external.map(e=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:0.5px solid var(--border);">
+        <span style="color:var(--text-secondary)">${e.n}</span>
+        <span style="font-weight:500">${e.v}</span>
+      </div>`).join('')}
+    </div>` : `<div class="empty-state" style="margin-top:0.5rem">Nima zavarovanj pri nas.</div>`;
+
   return `
     <div class="client-header">
       <div class="back-btn" id="back"><i class="ti ti-arrow-left"></i> Nazaj</div>
@@ -295,6 +380,7 @@ function renderClient() {
         <div class="client-meta">Datum rojstva: ${c.dob}</div>
       </div>
     </div>
+    ${c.noPolicies ? noPoliciesBlock : `
     <div class="ins-grid">
       <div class="ins-card ${state.activeTab==='life'?'active':''} ${!lifeN?'inactive':''}" data-tab="life">
         <div class="ins-card-header">
@@ -315,7 +401,7 @@ function renderClient() {
     </div>
     ${state.activeTab === 'life' ? renderLifePolicies(p.life)
     : state.activeTab === 'health' ? renderHealth(p.health)
-    : '<div class="empty-state">Kliknite na kategorijo za pregled polic.</div>'}`;
+    : '<div class="empty-state">Kliknite na kategorijo za pregled polic.</div>'}`}`;
 }
 
 function renderLifePolicies(list) {
