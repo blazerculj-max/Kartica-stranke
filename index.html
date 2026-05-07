@@ -458,8 +458,11 @@ function calcAge(dob) {
 function doSearch() { state.submitted = state.query.trim(); render(); }
 
 function render() {
-  document.getElementById('root').innerHTML = state.view === 'search' ? renderSearch() : renderClient();
+  const root = document.getElementById('root');
+  if (state.view === 'admin') { root.innerHTML = renderAdminPanel(); attachAdminEvents(); return; }
+  root.innerHTML = state.view === 'search' ? renderSearch() : renderClient();
   attachEvents();
+  if (admin.showLogin) { document.body.insertAdjacentHTML('beforeend', renderAdminLoginModal()); attachAdminLoginEvents(); }
 }
 
 function renderSearch() {
@@ -470,7 +473,10 @@ function renderSearch() {
       <input class="search-input" id="search" type="text" placeholder="Vpišite ime ali datum rojstva…" value="${state.query}" autocomplete="off">
       <button class="search-btn" id="searchBtn"><i class="ti ti-search"></i> Išči</button>
     </div>
-    <p class="search-hint">Iskalnik omogoča iskanje po imenu, priimku in datumu rojstva.</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <p class="search-hint" style="margin-bottom:0">Iskalnik omogoča iskanje po imenu, priimku in datumu rojstva.</p>
+      <button id="adminAccessBtn" style="padding:5px 10px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:12px;color:var(--text-tertiary);cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap"><i class="ti ti-settings"></i> Admin</button>
+    </div>
     <div class="tabs">
       <div class="tab active">Stranke${state.submitted !== null && results.length ? `<span class="badge">${results.length}</span>` : ''}</div>
       <div class="tab">Police</div><div class="tab">Škode</div><div class="tab">Dokumenti</div>
@@ -613,6 +619,10 @@ function attachEvents() {
   }
   const btn = document.getElementById('searchBtn');
   if (btn) btn.addEventListener('click', doSearch);
+  document.getElementById('adminAccessBtn')?.addEventListener('click', () => {
+    if (admin.loggedIn) { state.view = 'admin'; render(); }
+    else { admin.showLogin = true; render(); }
+  });
   document.querySelectorAll('.client-link').forEach(a => a.addEventListener('click', e => {
     e.preventDefault();
     state.client = CLIENTS.find(c => c.id === parseInt(a.dataset.id));
@@ -627,7 +637,362 @@ function attachEvents() {
   }));
 }
 
-render();
+// ===================== ADMIN PANEL =====================
+const ADMIN_CREDENTIALS = { user: 'admin', pass: 'TRIS2026' };
+const HEALTH_OPTIONS = ['Specialisti','Specialisti nezgoda','Specialisti+','Zobje+','Zdravnik 360','Operacije'];
+let admin = { loggedIn:false, showLogin:false, view:'home', clientId:null, form:{}, err:'' };
+
+function loadLocalData() {
+  try {
+    const clients = JSON.parse(localStorage.getItem('ek_clients')||'[]');
+    const policies = JSON.parse(localStorage.getItem('ek_policies')||'{}');
+    clients.forEach(c => { if (!CLIENTS.find(x=>x.id===c.id)) CLIENTS.push(c); });
+    Object.entries(policies).forEach(([id,p]) => {
+      const nid=parseInt(id);
+      if (POLICIES[nid]) { (p.life||[]).forEach(l=>POLICIES[nid].life.push(l)); (p.health||[]).forEach(h=>{ if(!POLICIES[nid].health.includes(h)) POLICIES[nid].health.push(h); }); }
+      else POLICIES[nid]={life:p.life||[],health:p.health||[]};
+    });
+  } catch(e) {}
+}
+function saveLocal() {
+  const extra=CLIENTS.filter(c=>c.id>=100);
+  const expol={};
+  extra.forEach(c=>{ if(POLICIES[c.id]) expol[c.id]=POLICIES[c.id]; });
+  localStorage.setItem('ek_clients',JSON.stringify(extra));
+  localStorage.setItem('ek_policies',JSON.stringify(expol));
+  ghSave({clients:extra,policies:expol}).then(ok=>{
+    admin.ghSaveStatus=ok?'ok':(getGHConf().repo?'err':'none');
+    if(state.view==='admin') render();
+  });
+}
+
+// ===== GITHUB =====
+function getGHConf(){ return {repo:localStorage.getItem('ek_gh_repo')||'',pat:localStorage.getItem('ek_gh_pat')||'',sha:localStorage.getItem('ek_gh_sha')||''}; }
+
+async function ghFetch(){
+  const {repo,pat}=getGHConf(); if(!repo||!pat) return null;
+  try {
+    const r=await fetch(`https://api.github.com/repos/${repo}/contents/data.json`,{headers:{'Authorization':`token ${pat}`,'Accept':'application/vnd.github.v3+json'}});
+    if(r.status===404) return {clients:[],policies:{}};
+    if(!r.ok) return null;
+    const d=await r.json();
+    localStorage.setItem('ek_gh_sha',d.sha);
+    return JSON.parse(atob(d.content.replace(/\n/g,'')));
+  } catch(e){ return null; }
+}
+
+async function ghSave(data){
+  const {repo,pat,sha}=getGHConf(); if(!repo||!pat) return false;
+  try {
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))));
+    const body={message:'E-kartica: posodobitev',content,...(sha?{sha}:{})};
+    const r=await fetch(`https://api.github.com/repos/${repo}/contents/data.json`,{method:'PUT',headers:{'Authorization':`token ${pat}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) return false;
+    const res=await r.json(); localStorage.setItem('ek_gh_sha',res.content.sha); return true;
+  } catch(e){ return false; }
+}
+
+async function ghTestConn(){
+  const repo=av('adm-gh-repo'),pat=av('adm-gh-pat'); if(!repo||!pat) return false;
+  try {
+    const r=await fetch(`https://api.github.com/repos/${repo}`,{headers:{'Authorization':`token ${pat}`}});
+    return r.ok;
+  } catch(e){ return false; }
+}
+
+async function initApp(){
+  loadLocalData();
+  admin.ghLoading=true;
+  const ghData=await ghFetch();
+  admin.ghLoading=false;
+  if(ghData){
+    (ghData.clients||[]).forEach(c=>{ if(!CLIENTS.find(x=>x.id===c.id)) CLIENTS.push(c); });
+    Object.entries(ghData.policies||{}).forEach(([id,p])=>{
+      const nid=parseInt(id);
+      if(POLICIES[nid]){ (p.life||[]).forEach(l=>{ if(!POLICIES[nid].life.find(x=>x.id===l.id)) POLICIES[nid].life.push(l); }); (p.health||[]).forEach(h=>{ if(!POLICIES[nid].health.includes(h)) POLICIES[nid].health.push(h); }); }
+      else POLICIES[nid]={life:p.life||[],health:p.health||[]};
+    });
+  }
+  render();
+}
+function getNextId() { const ids=CLIENTS.filter(c=>c.id>=100).map(c=>c.id); return ids.length?Math.max(...ids)+1:100; }
+function ai(id) { return document.getElementById(id); }
+function av(id) { const el=ai(id); return el?el.value.trim():''; }
+function ac(id) { const el=ai(id); return el?el.checked:false; }
+function syncForm() {
+  const map={'adm-period-start':'periodStart','adm-period-end':'periodEnd','adm-zzv':'zzv','adm-sredstva':'sredstva','adm-premija':'premija','adm-skladi':'skladi','adm-zv-smrt':'zvSmrt','adm-zv-doziv':'zvDoziv','adm-hude-zv':'hudeZV','adm-delovna-renta':'delovnaRenta','adm-otrok-ime':'otrokIme','adm-otrok-dob':'otrokDob','adm-nez-smrt-v':'nezSmrtV','adm-nez-inv-v':'nezInvV','adm-nez-dnevno-v':'nezDnevnoV','adm-nez-bolnis-v':'nezBolnisV','adm-nez-renta30-v':'nezRenta30V','adm-nez-renta50-v':'nezRenta50V','adm-nez-zlomi-v':'nezZlomiV','adm-new-name':'name','adm-new-dob':'dob'};
+  const cmap={'adm-nez-smrt':'nezSmrt','adm-nez-inv':'nezInv','adm-nez-dnevno':'nezDnevno','adm-nez-bolnis':'nezBolnis','adm-nez-renta30':'nezRenta30','adm-nez-renta50':'nezRenta50','adm-nez-zlomi':'nezZlomi'};
+  Object.entries(map).forEach(([id,k])=>{ const el=ai(id); if(el) admin.form[k]=el.value; });
+  Object.entries(cmap).forEach(([id,k])=>{ const el=ai(id); if(el) admin.form[k]=el.checked; });
+}
+function inp(s) { return `width:100%;padding:${s==='sm'?'7px 10px':'9px 12px'};border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg);color:var(--text);font-size:${s==='sm'?'12px':'13px'};outline:none;box-sizing:border-box;`; }
+function frow(lbl,id,val,ph) { return `<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:3px">${lbl}</label><input id="${id}" type="text" placeholder="${ph}" value="${val||''}" style="${inp()}"></div>`; }
+function crow(lbl,cid,ck,vid,vv) { return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><input type="checkbox" id="${cid}" ${ck?'checked':''} style="width:15px;height:15px;accent-color:#BA7517;flex-shrink:0"><label for="${cid}" style="font-size:12px;min-width:180px;cursor:pointer">${lbl}</label><input id="${vid}" type="text" placeholder="znesek" value="${vv||''}" ${!ck?'disabled':''} style="${inp('sm')} flex:1;${!ck?'opacity:0.4':''}"></div>`; }
+
+function renderAdminLoginModal() {
+  return `<div id="adm-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000">
+    <div style="background:var(--bg);border-radius:var(--radius-lg);padding:2rem;width:320px;border:0.5px solid var(--border)">
+      <div style="font-size:16px;font-weight:500;margin-bottom:1.5rem;display:flex;align-items:center;gap:8px"><i class="ti ti-lock" style="color:var(--orange)"></i> Admin prijava</div>
+      <input id="adm-user" type="text" placeholder="Uporabniško ime" style="${inp()} margin-bottom:10px">
+      <input id="adm-pass" type="password" placeholder="Geslo" style="${inp()} margin-bottom:${admin.err?'8px':'16px'}">
+      ${admin.err?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px">${admin.err}</div>`:''}
+      <div style="display:flex;gap:8px">
+        <button id="adm-login-btn" style="flex:1;padding:9px;background:var(--orange);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:500;cursor:pointer">Prijava</button>
+        <button id="adm-cancel-btn" style="padding:9px 16px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:14px;cursor:pointer">Prekliči</button>
+      </div>
+    </div>
+  </div>`; }
+
+function renderAdminPanel() {
+  const hdr=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:0.5px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;background:var(--orange);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px"><i class="ti ti-settings"></i></div><span style="font-size:15px;font-weight:500">Admin panel</span></div>
+    <div style="display:flex;gap:8px">${admin.view!=='home'?`<button id="adm-back" class="back-btn"><i class="ti ti-arrow-left"></i> Nazaj</button>`:''}<button id="adm-logout" style="padding:6px 12px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:13px;cursor:pointer;color:var(--text-secondary)"><i class="ti ti-logout"></i> Odjava</button></div>
+  </div>`;
+  const views={home:renderAdmHome,addClient:renderAdmAddClient,clientDetail:renderAdmClientDetail,addLifePolicy:renderAdmAddLife,addHealthPolicy:renderAdmAddHealth,ghConfig:renderAdmGHConfig};
+  return hdr+(views[admin.view]||renderAdmHome)(); }
+
+function renderAdmGHConfig(){
+  const conf=getGHConf();
+  return `<div style="max-width:480px">
+    <div style="font-size:15px;font-weight:500;margin-bottom:0.5rem">GitHub nastavitve</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem;line-height:1.6">Vnesite repozitorij in Personal Access Token. PAT ustvariš na GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → scope: <strong>repo</strong>.</p>
+    ${frow('Repozitorij (uporabnik/repo-ime)','adm-gh-repo',conf.repo,'npr. janeznovak/ekartica')}
+    ${frow('Personal Access Token (PAT)','adm-gh-pat',conf.pat,'ghp_...')}
+    ${admin.err?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px">${admin.err}</div>`:''}
+    ${admin.ghTestOk===true?`<div style="font-size:12px;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:5px"><i class="ti ti-circle-check"></i> Povezava uspešna!</div>`:''}
+    ${admin.ghTestOk===false?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px;display:flex;align-items:center;gap:5px"><i class="ti ti-circle-x"></i> Napaka — preveri repo in PAT.</div>`:''}
+    <div style="display:flex;gap:8px">
+      <button id="adm-gh-test" style="padding:9px 16px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:13px;cursor:pointer">Testiraj povezavo</button>
+      <button id="adm-gh-save-conf" style="padding:9px 24px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:500;cursor:pointer">Shrani</button>
+    </div>
+  </div>`; }
+
+function renderAdmHome() {
+  const sorted=[...CLIENTS].sort((a,b)=>a.name.localeCompare(b.name,'sl'));
+  const conf=getGHConf();
+  const ghBadge=conf.repo?`<span style="font-size:11px;color:var(--green);display:flex;align-items:center;gap:3px"><i class="ti ti-circle-check"></i>${conf.repo}</span>`:`<span style="font-size:11px;color:var(--text-tertiary)">Ni nastavljeno</span>`;
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+    <div><span style="font-size:13px;color:var(--text-secondary)">${CLIENTS.length} strank skupaj</span>
+    <div style="display:flex;align-items:center;gap:5px;margin-top:3px"><i class="ti ti-brand-github" style="font-size:13px;color:var(--text-tertiary)"></i>${ghBadge}</div></div>
+    <div style="display:flex;gap:6px">
+      <button id="adm-gh-btn" style="padding:7px 12px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px"><i class="ti ti-brand-github"></i> GitHub</button>
+      <button id="adm-add-client" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-plus"></i> Dodaj stranko</button>
+    </div>
+  </div>
+  <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
+    ${sorted.map((c,i)=>{ const p=POLICIES[c.id]||{life:[],health:[]};
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:${i<sorted.length-1?'0.5px solid var(--border)':'none'}">
+        <div><span style="font-size:13px;font-weight:500">${c.name}</span>${c.id>=100?`<span style="font-size:10px;background:var(--blue-light);color:var(--blue);border-radius:8px;padding:1px 6px;margin-left:6px">novo</span>`:''}
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px">${c.dob} · ${calcAge(c.dob)} let · ${p.life.length} živ. · ${p.health.length} zdr.</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="adm-sel" data-id="${c.id}" style="padding:5px 10px;background:var(--bg-secondary);border:0.5px solid var(--border);border-radius:var(--radius-md);font-size:12px;cursor:pointer">Uredi</button>
+          ${c.id>=100?`<button class="adm-del-c" data-id="${c.id}" style="padding:5px 10px;background:#fdf0f0;border:0.5px solid #e8b4b4;border-radius:var(--radius-md);font-size:12px;cursor:pointer;color:#c0392b">Izbriši</button>`:''}
+        </div>
+      </div>`;}).join('')}
+  </div>`; }
+
+function renderAdmAddClient() {
+  return `<div style="max-width:480px">
+    <div style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Nova stranka</div>
+    ${frow('Ime in priimek','adm-new-name',admin.form.name,'npr. Janez Novak')}
+    ${frow('Datum rojstva (d.m.llll)','adm-new-dob',admin.form.dob,'npr. 15.4.1985')}
+    ${admin.err?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px">${admin.err}</div>`:''}
+    <button id="adm-save-client" style="padding:9px 24px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:500;cursor:pointer">Shrani stranko</button>
+  </div>`; }
+
+function renderAdmClientDetail() {
+  const c=CLIENTS.find(x=>x.id===admin.clientId); const p=POLICIES[c.id]||{life:[],health:[]};
+  return `<div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;padding:12px 14px;background:var(--bg-secondary);border-radius:var(--radius-lg);border:0.5px solid var(--border)">
+      <div class="avatar"><i class="ti ti-user"></i></div>
+      <div><div style="font-size:15px;font-weight:500">${c.name}</div><div style="font-size:12px;color:var(--text-secondary)">${c.dob} · ${calcAge(c.dob)} let</div></div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <div style="font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Življenjska (${p.life.length})</div>
+      ${p.life.length?p.life.map(pol=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:6px">
+        <div><div style="font-size:13px;font-weight:500">${pol.name}</div><div style="font-size:11px;color:var(--text-tertiary)">${pol.period}</div></div>
+        <div style="display:flex;gap:5px">
+          <button class="adm-edit-pol" data-pid="${pol.id}" style="padding:4px 8px;background:var(--blue-light);border:0.5px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;color:var(--blue)">Uredi</button>
+          ${pol._adm?`<button class="adm-del-pol" data-pid="${pol.id}" data-type="life" style="padding:4px 8px;background:#fdf0f0;border:0.5px solid #e8b4b4;border-radius:6px;font-size:11px;cursor:pointer;color:#c0392b">Izbriši</button>`:''}
+        </div>
+      </div>`).join(''):`<div style="font-size:13px;color:var(--text-tertiary)">Ni polic</div>`}
+    </div>
+    <div style="margin-bottom:1.5rem">
+      <div style="font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Zdravstvena (${p.health.length})</div>
+      ${p.health.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${p.health.map(h=>`<span style="font-size:12px;padding:4px 10px;background:var(--green-light);color:var(--green-text);border-radius:10px;font-weight:500">${h}</span>`).join('')}</div>`:`<div style="font-size:13px;color:var(--text-tertiary)">Ni polic</div>`}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="adm-add-life" style="padding:9px 16px;background:var(--orange);color:#fff;border:none;border-radius:var(--radius-md);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-plus"></i> Življenjsko zavarovanje</button>
+      <button id="adm-add-health" style="padding:9px 16px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ti ti-plus"></i> Zdravstveno zavarovanje</button>
+      ${c.id>=100?`<button id="adm-del-this" style="padding:9px 16px;background:#fdf0f0;border:0.5px solid #e8b4b4;border-radius:var(--radius-md);font-size:13px;cursor:pointer;color:#c0392b;display:flex;align-items:center;gap:6px"><i class="ti ti-trash"></i> Izbriši stranko</button>`:''}
+    </div>
+  </div>`; }
+
+function renderAdmAddLife() {
+  const f=admin.form; const isFleks=f.pt==='fleks'||f.pt==='fleksS';
+  const types=[['life','Zavarovanje življenja'],['mesano','Mešano življenjsko'],['fleks','Fleks'],['fleksS','Fleks za starejše']];
+  const secCfg={nezgodno:{lbl:'Dodatno nezgodno zavarovanje',col:'#BA7517',bg:'#FFF8F0'},otroci:{lbl:'Dodatno nezgodno zavarovanje otrok',col:'var(--green)',bg:'#F0FAF5'},hude:{lbl:'Dodatno zavarovanje za hude bolezni',col:'#993556',bg:'#FDF0F5'},delovna:{lbl:'Dodatno zavarovanje za začasno delovno nezmožnost',col:'var(--blue)',bg:'var(--blue-light)'}};
+  return `<div style="max-width:560px">
+    <div style="font-size:15px;font-weight:500;margin-bottom:1.25rem">${admin.editPolId?'Uredi polico':'Novo življenjsko zavarovanje'}</div>
+    <div style="margin-bottom:1rem"><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px">Vrsta zavarovanja</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${types.map(([v,l])=>`<button class="adm-type-btn" data-t="${v}" style="padding:7px 12px;border-radius:var(--radius-md);font-size:13px;cursor:pointer;border:1px solid ${f.pt===v?'var(--blue)':'var(--border)'};background:${f.pt===v?'var(--blue-light)':'var(--bg)'};color:${f.pt===v?'var(--blue)':'var(--text-secondary)'}">${l}</button>`).join('')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+      <div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Začetek</label><input id="adm-period-start" type="text" placeholder="d.m.llll" value="${f.periodStart||''}" style="${inp()}"></div>
+      ${!isFleks?`<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Konec</label><input id="adm-period-end" type="text" placeholder="d.m.llll" value="${f.periodEnd||''}" style="${inp()}"></div>`:'<div></div>'}
+    </div>
+    <div style="background:var(--bg-secondary);border-radius:var(--radius-md);padding:12px;margin-bottom:1rem;border:0.5px solid var(--border)">
+      <div style="font-size:11px;font-weight:500;color:var(--orange);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:var(--orange);display:inline-block"></span> Osnovno zavarovanje</div>
+      ${isFleks?`${frow('ZZV (zagotovljena ZV za smrt)','adm-zzv',f.zzv,'npr. 4.500 EUR')}${frow('Sredstva na računu','adm-sredstva',f.sredstva,'npr. cca 1.200 EUR')}${frow('Mesečna premija','adm-premija',f.premija,'npr. 50 EUR')}${frow('Skladi / Strategija','adm-skladi',f.skladi,'npr. Triglav Top Brands')}`:`${frow('ZV za smrt','adm-zv-smrt',f.zvSmrt,'npr. 50.000 EUR')}${f.pt==='mesano'?frow('ZV za doživetje','adm-zv-doziv',f.zvDoziv,'npr. 10.000 EUR'):''}`}
+    </div>
+    ${['nezgodno','otroci','hude','delovna'].map(sec=>{ const c2=secCfg[sec]; const open=f[sec+'Open'];
+      return `<div style="border:0.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:8px">
+        <div id="adm-tog-${sec}" style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:${open?c2.bg:'var(--bg)'}">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500"><span style="width:6px;height:6px;border-radius:50%;background:${c2.col};display:inline-block"></span>${c2.lbl}</div>
+          <i class="ti ti-chevron-${open?'up':'down'}" style="color:var(--text-secondary)"></i>
+        </div>
+        ${open?`<div style="padding:10px 12px;border-top:0.5px solid var(--border);background:var(--bg)">
+          ${sec==='nezgodno'?`${crow('Nezgodna smrt','adm-nez-smrt',f.nezSmrt,'adm-nez-smrt-v',f.nezSmrtV)}${crow('Invalidnost','adm-nez-inv',f.nezInv,'adm-nez-inv-v',f.nezInvV)}${crow('Dnevno nadomestilo','adm-nez-dnevno',f.nezDnevno,'adm-nez-dnevno-v',f.nezDnevnoV)}${crow('Bolnišnični dan','adm-nez-bolnis',f.nezBolnis,'adm-nez-bolnis-v',f.nezBolnisV)}${crow('Invalidnostna renta 30%','adm-nez-renta30',f.nezRenta30,'adm-nez-renta30-v',f.nezRenta30V)}${crow('Invalidnostna renta 50%','adm-nez-renta50',f.nezRenta50,'adm-nez-renta50-v',f.nezRenta50V)}${crow('Zlomi, izpahi, opekline','adm-nez-zlomi',f.nezZlomi,'adm-nez-zlomi-v',f.nezZlomiV)}`
+          :sec==='otroci'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:3px">Ime otroka</label><input id="adm-otrok-ime" type="text" placeholder="npr. Lara" value="${f.otrokIme||''}" style="${inp('sm')}"></div><div><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:3px">Datum rojstva</label><input id="adm-otrok-dob" type="text" placeholder="d.m.llll" value="${f.otrokDob||''}" style="${inp('sm')}"></div></div>`
+          :sec==='hude'?frow('Zavarovalna vsota','adm-hude-zv',f.hudeZV,'npr. 5.000 EUR')
+          :frow('Mesečna renta','adm-delovna-renta',f.delovnaRenta,'npr. 500 EUR')}
+        </div>`:''}
+      </div>`;}).join('')}
+    ${admin.err?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px">${admin.err}</div>`:''}
+    <button id="adm-save-life" style="padding:9px 24px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:500;cursor:pointer">Shrani polico</button>
+  </div>`; }
+
+function renderAdmAddHealth() {
+  const f=admin.form;
+  return `<div style="max-width:480px">
+    <div style="font-size:15px;font-weight:500;margin-bottom:1.25rem">Zdravstvena zavarovanja</div>
+    <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem">
+      ${HEALTH_OPTIONS.map((opt,i)=>`<label style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:${i<HEALTH_OPTIONS.length-1?'0.5px solid var(--border)':'none'};cursor:pointer">
+        <input type="checkbox" class="adm-hchk" data-opt="${opt}" ${(f.hs||[]).includes(opt)?'checked':''} style="width:16px;height:16px;accent-color:var(--green)">
+        <span style="font-size:13px">${opt}</span>
+        ${opt==='Operacije'&&(f.hs||[]).includes(opt)?`<input id="adm-op-zv" type="text" placeholder="ZV npr. 30.000" value="${f.opZV||''}" style="${inp('sm')} margin-left:auto;width:130px">`:''}
+      </label>`).join('')}
+    </div>
+    ${admin.err?`<div style="font-size:12px;color:#c0392b;margin-bottom:12px">${admin.err}</div>`:''}
+    <button id="adm-save-health" style="padding:9px 24px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-md);font-size:14px;font-weight:500;cursor:pointer">Shrani zavarovanja</button>
+  </div>`; }
+
+function polToForm(pol){
+  const ptMap={'Fleks za starejše':'fleksS','Fleks':'fleks','Mešano življenjsko zavarovanje':'mesano'};
+  const pt=ptMap[pol.name]||(pol.type==='fleks'?'fleks':'life');
+  const f={pt};
+  if(pol.period.startsWith('od ')) f.periodStart=pol.period.replace('od ','');
+  else if(pol.period.includes(' – ')){ const p=pol.period.split(' – '); f.periodStart=p[0]; f.periodEnd=p[1]; }
+  (pol.base||[]).forEach(({n,v})=>{
+    if(n.includes('ZZV')) f.zzv=v; else if(n.includes('Sredstva')) f.sredstva=v;
+    else if(n.includes('Mesečna premija')) f.premija=v; else if(n.includes('Skladi')||n.includes('Strategija')) f.skladi=v;
+    else if(n.includes('ZV za smrt')) f.zvSmrt=v; else if(n.includes('doživetje')) f.zvDoziv=v;
+  });
+  if(pol.nezgodno?.length){ f.nezgodnoOpen=true; pol.nezgodno.forEach(({n,v})=>{
+    if(n.includes('Nezgodna smrt')){f.nezSmrt=true;f.nezSmrtV=v;}
+    else if(n.includes('Invalidnost')&&!n.includes('renta')&&!n.includes('Renta')){f.nezInv=true;f.nezInvV=v;}
+    else if(n.includes('Dnevno')){f.nezDnevno=true;f.nezDnevnoV=v;}
+    else if(n.includes('Bolnišnični')){f.nezBolnis=true;f.nezBolnisV=v;}
+    else if(n.includes('30%')){f.nezRenta30=true;f.nezRenta30V=v;}
+    else if(n.includes('50%')){f.nezRenta50=true;f.nezRenta50V=v;}
+    else if(n.includes('Zlomi')){f.nezZlomi=true;f.nezZlomiV=v;}
+  }); }
+  if(pol.nezgodnoOtroci?.length){ f.otrociOpen=true; const m=pol.nezgodnoOtroci[0].n.match(/Kombinacija D \((.+?), (.+?)\)/); if(m){f.otrokIme=m[1];f.otrokDob=m[2];} }
+  if(pol.hudeBolezni?.length){ f.hudeOpen=true; f.hudeZV=pol.hudeBolezni[0].v; }
+  if(pol.delovnaNezmoznost?.length){ f.delovnaOpen=true; f.delovnaRenta=pol.delovnaNezmoznost[0].v; }
+  return f;
+}
+
+function buildLifePol() {
+  const f=admin.form; const isFleks=f.pt==='fleks'||f.pt==='fleksS';
+  const nameMap={life:'Zavarovanje življenja',mesano:'Mešano življenjsko zavarovanje',fleks:'Fleks',fleksS:'Fleks za starejše'};
+  const typeMap={life:'life',mesano:'life',fleks:'fleks',fleksS:'fleks'};
+  const s=av('adm-period-start'),e=av('adm-period-end');
+  const period=isFleks?(s?`od ${s}`:'—'):(s&&e?`${s} – ${e}`:s||'—');
+  const base=[];
+  if(isFleks){ if(av('adm-zzv')) base.push({n:'ZZV (zagotovljena ZV za smrt)',v:av('adm-zzv')}); if(av('adm-sredstva')) base.push({n:'Sredstva na računu',v:av('adm-sredstva')}); if(av('adm-premija')) base.push({n:'Mesečna premija',v:av('adm-premija')}); if(av('adm-skladi')) base.push({n:'Skladi / Strategija',v:av('adm-skladi')}); }
+  else { if(av('adm-zv-smrt')) base.push({n:'ZV za smrt',v:av('adm-zv-smrt')}); if(f.pt==='mesano'&&av('adm-zv-doziv')) base.push({n:'ZV za doživetje',v:av('adm-zv-doziv')}); }
+  let nezgodno=null; if(f.nezgodnoOpen){ const r=[]; if(ac('adm-nez-smrt')&&av('adm-nez-smrt-v')) r.push({n:'Nezgodna smrt',v:av('adm-nez-smrt-v')}); if(ac('adm-nez-inv')&&av('adm-nez-inv-v')) r.push({n:'Invalidnost',v:av('adm-nez-inv-v')}); if(ac('adm-nez-dnevno')&&av('adm-nez-dnevno-v')) r.push({n:'Dnevno nadomestilo',v:av('adm-nez-dnevno-v')}); if(ac('adm-nez-bolnis')&&av('adm-nez-bolnis-v')) r.push({n:'Bolnišnični dan',v:av('adm-nez-bolnis-v')}); if(ac('adm-nez-renta30')&&av('adm-nez-renta30-v')) r.push({n:'Invalidnostna renta 30%',v:av('adm-nez-renta30-v')}); if(ac('adm-nez-renta50')&&av('adm-nez-renta50-v')) r.push({n:'Invalidnostna renta 50%',v:av('adm-nez-renta50-v')}); if(ac('adm-nez-zlomi')&&av('adm-nez-zlomi-v')) r.push({n:'Zlomi, izpahi, opekline',v:av('adm-nez-zlomi-v')}); if(r.length) nezgodno=r; }
+  let nezgodnoOtroci=null; if(f.otrociOpen&&av('adm-otrok-ime')) nezgodnoOtroci=[{n:`Kombinacija D (${av('adm-otrok-ime')}, ${av('adm-otrok-dob')})`,v:''}];
+  let hudeBolezni=null; if(f.hudeOpen&&av('adm-hude-zv')) hudeBolezni=[{n:'Zavarovalna vsota',v:av('adm-hude-zv')}];
+  let delovnaNezmoznost=null; if(f.delovnaOpen&&av('adm-delovna-renta')) delovnaNezmoznost=[{n:'Začasna delovna nezmožnost (mesečna renta)',v:av('adm-delovna-renta')}];
+  return {id:`adm_${Date.now()}`,type:typeMap[f.pt]||'life',name:nameMap[f.pt]||'Zavarovanje življenja',period,base,nezgodno,nezgodnoOtroci,hudeBolezni,delovnaNezmoznost,_adm:true};
+}
+
+function attachAdminLoginEvents() {
+  ai('adm-login-btn')?.addEventListener('click',()=>{
+    const u=av('adm-user'),p=av('adm-pass');
+    if(u===ADMIN_CREDENTIALS.user&&p===ADMIN_CREDENTIALS.pass){ admin.loggedIn=true; admin.showLogin=false; admin.err=''; state.view='admin'; render(); }
+    else { admin.err='Napačno uporabniško ime ali geslo.'; ai('adm-overlay').outerHTML=renderAdminLoginModal(); attachAdminLoginEvents(); }
+  });
+  ai('adm-cancel-btn')?.addEventListener('click',()=>{ admin.showLogin=false; render(); });
+  ai('adm-user')?.addEventListener('keydown',e=>e.key==='Enter'&&ai('adm-pass')?.focus());
+  ai('adm-pass')?.addEventListener('keydown',e=>e.key==='Enter'&&ai('adm-login-btn')?.click());
+}
+
+function attachAdminEvents() {
+  ai('adm-gh-btn')?.addEventListener('click',()=>{ admin.view='ghConfig'; admin.ghTestOk=undefined; admin.err=''; render(); });
+  ai('adm-gh-test')?.addEventListener('click',async()=>{ ai('adm-gh-test').textContent='Testiram...'; const ok=await ghTestConn(); admin.ghTestOk=ok; render(); });
+  ai('adm-gh-save-conf')?.addEventListener('click',()=>{ const repo=av('adm-gh-repo'),pat=av('adm-gh-pat'); if(!repo||!pat){admin.err='Vnesite repozitorij in PAT.';render();return;} localStorage.setItem('ek_gh_repo',repo); localStorage.setItem('ek_gh_pat',pat); localStorage.removeItem('ek_gh_sha'); admin.view='home'; admin.err=''; admin.ghTestOk=undefined; render(); });
+  ai('adm-logout')?.addEventListener('click',()=>{ admin.loggedIn=false; state.view='search'; render(); });
+  ai('adm-back')?.addEventListener('click',()=>{ syncForm(); const fromDetail=['addClient','clientDetail','ghConfig']; admin.view=fromDetail.includes(admin.view)?'home':'clientDetail'; admin.err=''; admin.ghTestOk=undefined; admin.editPolId=null; if(admin.view==='home') admin.form={}; render(); });
+  ai('adm-add-client')?.addEventListener('click',()=>{ admin.view='addClient'; admin.form={}; admin.err=''; render(); });
+  ai('adm-save-client')?.addEventListener('click',()=>{
+    const name=av('adm-new-name'),dob=av('adm-new-dob');
+    if(!name||!dob){ admin.err='Vnesite ime in datum rojstva.'; render(); return; }
+    const id=getNextId(); CLIENTS.push({id,name:name.toUpperCase().trim(),dob}); POLICIES[id]={life:[],health:[]};
+    saveLocal(); admin.view='clientDetail'; admin.clientId=id; admin.form={}; admin.err=''; render();
+  });
+  document.querySelectorAll('.adm-sel').forEach(b=>b.addEventListener('click',()=>{ admin.clientId=parseInt(b.dataset.id); admin.view='clientDetail'; admin.form={}; render(); }));
+  document.querySelectorAll('.adm-del-c').forEach(b=>b.addEventListener('click',()=>{
+    if(!confirm('Izbrisati stranko?')) return;
+    const id=parseInt(b.dataset.id); CLIENTS.splice(CLIENTS.findIndex(c=>c.id===id),1); delete POLICIES[id]; saveLocal(); render();
+  }));
+  ai('adm-del-this')?.addEventListener('click',()=>{ if(!confirm('Izbrisati stranko?')) return; CLIENTS.splice(CLIENTS.findIndex(c=>c.id===admin.clientId),1); delete POLICIES[admin.clientId]; saveLocal(); admin.view='home'; render(); });
+  ai('adm-add-life')?.addEventListener('click',()=>{ admin.view='addLifePolicy'; admin.form={pt:'life'}; admin.err=''; render(); });
+  ai('adm-add-health')?.addEventListener('click',()=>{ admin.view='addHealthPolicy'; admin.form={hs:[]}; admin.err=''; render(); });
+  document.querySelectorAll('.adm-type-btn').forEach(b=>b.addEventListener('click',()=>{ syncForm(); admin.form.pt=b.dataset.t; render(); }));
+  ['nezgodno','otroci','hude','delovna'].forEach(sec=>ai(`adm-tog-${sec}`)?.addEventListener('click',()=>{ syncForm(); admin.form[sec+'Open']=!admin.form[sec+'Open']; render(); }));
+  document.querySelectorAll('[id^=adm-nez-]:not([id$=-v])').forEach(cb=>cb.addEventListener('change',()=>{ const el=ai(cb.id+'-v'); if(el) el.disabled=!cb.checked; }));
+  ai('adm-save-life')?.addEventListener('click',()=>{
+    syncForm(); const pol=buildLifePol();
+    if(!POLICIES[admin.clientId]) POLICIES[admin.clientId]={life:[],health:[]};
+    if(admin.editPolId){
+      // Edit mode: replace existing policy
+      const idx=POLICIES[admin.clientId].life.findIndex(p=>p.id===admin.editPolId);
+      pol.id=admin.editPolId; pol._adm=POLICIES[admin.clientId].life[idx]?._adm||false;
+      if(idx>-1) POLICIES[admin.clientId].life[idx]=pol;
+      admin.editPolId=null;
+    } else {
+      POLICIES[admin.clientId].life.push(pol);
+    }
+    saveLocal(); admin.view='clientDetail'; admin.form={}; admin.err=''; render();
+  });
+  document.querySelectorAll('.adm-hchk').forEach(cb=>cb.addEventListener('change',()=>{
+    if(!admin.form.hs) admin.form.hs=[];
+    const opt=cb.dataset.opt;
+    if(cb.checked){ if(!admin.form.hs.includes(opt)) admin.form.hs.push(opt); } else admin.form.hs=admin.form.hs.filter(x=>x!==opt);
+    render();
+  }));
+  ai('adm-save-health')?.addEventListener('click',()=>{
+    if(!admin.form.hs?.length){ admin.err='Izberite vsaj eno zavarovanje.'; render(); return; }
+    if(!POLICIES[admin.clientId]) POLICIES[admin.clientId]={life:[],health:[]};
+    const opZV=av('adm-op-zv');
+    admin.form.hs.forEach(h=>{ const lbl=h==='Operacije'?`Operacije (ZV ${opZV||'30.000'})`:h; if(!POLICIES[admin.clientId].health.includes(lbl)) POLICIES[admin.clientId].health.push(lbl); });
+    saveLocal(); admin.view='clientDetail'; admin.form={}; admin.err=''; render();
+  });
+  document.querySelectorAll('.adm-edit-pol').forEach(b=>b.addEventListener('click',()=>{
+    const pid=b.dataset.pid;
+    const pol=POLICIES[admin.clientId].life.find(p=>p.id===pid);
+    if(!pol) return;
+    admin.editPolId=pid; admin.form=polToForm(pol); admin.view='addLifePolicy'; admin.err=''; render();
+  }));
+  document.querySelectorAll('.adm-del-pol').forEach(b=>b.addEventListener('click',()=>{ POLICIES[admin.clientId][b.dataset.type]=POLICIES[admin.clientId][b.dataset.type].filter(p=>p.id!==b.dataset.pid); saveLocal(); render(); }));
+}
+// ===================== END ADMIN =====================
+
+loadLocalData();
+initApp();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
