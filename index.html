@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="E-kartica">
 <meta name="theme-color" content="#D85A30">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="data:application/json,{%22name%22:%22E-kartica%22,%22short_name%22:%22E-kartica%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f0efe9%22,%22theme_color%22:%22%23D85A30%22,%22start_url%22:%22./%22}">
 <title>E-kartica – Zavarovalni zastopnik</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
@@ -458,6 +458,8 @@ function calcAge(dob) {
 function doSearch() { state.submitted = state.query.trim(); render(); }
 
 function render() {
+  const overlay = document.getElementById('adm-overlay');
+  if (overlay && !admin.showLogin) overlay.remove();
   const root = document.getElementById('root');
   if (state.view === 'admin') { root.innerHTML = renderAdminPanel(); attachAdminEvents(); return; }
   root.innerHTML = state.view === 'search' ? renderSearch() : renderClient();
@@ -702,18 +704,18 @@ async function ghTestConn(){
 
 async function initApp(){
   loadLocalData();
-  admin.ghLoading=true;
-  const ghData=await ghFetch();
-  admin.ghLoading=false;
+  render(); // prikaži takoj
+  const ghData=await ghFetch(); // GitHub v ozadju
   if(ghData){
-    (ghData.clients||[]).forEach(c=>{ if(!CLIENTS.find(x=>x.id===c.id)) CLIENTS.push(c); });
+    let changed=false;
+    (ghData.clients||[]).forEach(c=>{ if(!CLIENTS.find(x=>x.id===c.id)){ CLIENTS.push(c); changed=true; } });
     Object.entries(ghData.policies||{}).forEach(([id,p])=>{
       const nid=parseInt(id);
-      if(POLICIES[nid]){ (p.life||[]).forEach(l=>{ if(!POLICIES[nid].life.find(x=>x.id===l.id)) POLICIES[nid].life.push(l); }); (p.health||[]).forEach(h=>{ if(!POLICIES[nid].health.includes(h)) POLICIES[nid].health.push(h); }); }
-      else POLICIES[nid]={life:p.life||[],health:p.health||[]};
+      if(POLICIES[nid]){ (p.life||[]).forEach(l=>{ if(!POLICIES[nid].life.find(x=>x.id===l.id)){ POLICIES[nid].life.push(l); changed=true; } }); (p.health||[]).forEach(h=>{ if(!POLICIES[nid].health.includes(h)){ POLICIES[nid].health.push(h); changed=true; } }); }
+      else{ POLICIES[nid]={life:p.life||[],health:p.health||[]}; changed=true; }
     });
+    if(changed) render(); // osveži samo če so novi podatki
   }
-  render();
 }
 function getNextId() { const ids=CLIENTS.filter(c=>c.id>=100).map(c=>c.id); return ids.length?Math.max(...ids)+1:100; }
 function ai(id) { return document.getElementById(id); }
@@ -996,9 +998,7 @@ initApp();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js');
-  });
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 </script>
 </body>
